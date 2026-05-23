@@ -28,3 +28,5 @@ const habitLogSchema = new mongoose.Schema(
         timestamps: true,
     }
 );
+
+module.exports = mongoose.model("HabitLog", habitLogSchema);
