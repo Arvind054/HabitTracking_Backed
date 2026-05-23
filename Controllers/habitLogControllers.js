@@ -52,6 +52,10 @@ module.exports.updateHabitStatus = async (req, res) => {
          log,
       });
    } catch (error) {
+      if (error.code === 11000) {
+         return res.status(409).json({ message: 'Habit already marked completed for today' });
+      }
+
       return res.status(500).json({
          message: 'Failed to update habit status',
          error: error.message,
