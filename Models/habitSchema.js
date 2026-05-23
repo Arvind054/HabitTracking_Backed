@@ -24,6 +24,22 @@ const habitSchema = new mongoose.Schema(
             enum: ["daily", "weekly"],
             required: true,
         },
+
+        tags: {
+            type: [String],
+            default: [],
+            set: (values) => [...new Set(values.map((value) => value.trim().toLowerCase()))],
+        },
+
+        currentStreak: {
+            type: Number,
+            default: 0,
+        },
+
+        bestStreak: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,

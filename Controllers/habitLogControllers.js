@@ -19,6 +19,58 @@ function getLast7Days() {
    return days;
 }
 
+function calculateStreaks(dates) {
+   const sortedDates = [...new Set(dates)].sort();
+
+   if (sortedDates.length === 0) {
+      return { currentStreak: 0, bestStreak: 0 };
+   }
+
+   const dayMs = 24 * 60 * 60 * 1000;
+   let bestStreak = 1;
+   let currentRun = 1;
+
+   for (let index = 1; index < sortedDates.length; index += 1) {
+      const previous = new Date(`${sortedDates[index - 1]}T00:00:00.000Z`);
+      const current = new Date(`${sortedDates[index]}T00:00:00.000Z`);
+      const diffDays = (current - previous) / dayMs;
+
+      if (diffDays === 1) {
+         currentRun += 1;
+      } else {
+         bestStreak = Math.max(bestStreak, currentRun);
+         currentRun = 1;
+      }
+   }
+
+   bestStreak = Math.max(bestStreak, currentRun);
+
+   let currentStreak = 1;
+   for (let index = sortedDates.length - 1; index > 0; index -= 1) {
+      const previous = new Date(`${sortedDates[index - 1]}T00:00:00.000Z`);
+      const current = new Date(`${sortedDates[index]}T00:00:00.000Z`);
+      const diffDays = (current - previous) / dayMs;
+
+      if (diffDays === 1) {
+         currentStreak += 1;
+      } else {
+         break;
+      }
+   }
+
+   return { currentStreak, bestStreak };
+}
+
+async function refreshHabitStreaks(habitId) {
+   const logs = await HabitLog.find({ habit: habitId }).sort({ date: 1 }).lean();
+   const dates = logs.map((log) => log.date);
+   const { currentStreak, bestStreak } = calculateStreaks(dates);
+
+   await Habit.findByIdAndUpdate(habitId, { currentStreak, bestStreak });
+
+   return { currentStreak, bestStreak };
+}
+
 // update the status of the Habit : mark as Done
 module.exports.updateHabitStatus = async (req, res) => {
    try {
@@ -47,9 +99,12 @@ module.exports.updateHabitStatus = async (req, res) => {
          date: trackedDate,
       });
 
+      const streaks = await refreshHabitStreaks(habit._id);
+
       return res.status(201).json({
          message: 'Habit marked as completed for today',
          log,
+         streaks,
       });
    } catch (error) {
       if (error.code === 11000) {

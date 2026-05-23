@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 const Habit = require('../Models/habitSchema');
 
+function normalizeTags(tags) {
+   if (!Array.isArray(tags)) {
+      return [];
+   }
+
+   return [...new Set(tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))];
+}
+
 function buildHabitPayload(body) {
    const payload = {};
 
@@ -16,13 +24,29 @@ function buildHabitPayload(body) {
       payload.frequency = body.frequency;
    }
 
+   if (body.tags !== undefined) {
+      payload.tags = normalizeTags(Array.isArray(body.tags) ? body.tags : String(body.tags).split(','));
+   }
+
    return payload;
+}
+
+function applyStreakMeta(habit) {
+   if (!habit) {
+      return habit;
+   }
+
+   return {
+      ...habit.toObject(),
+      currentStreak: habit.currentStreak || 0,
+      bestStreak: habit.bestStreak || 0,
+   };
 }
 
 // Create a new habit
 module.exports.createHabit = async (req, res) => {
    try {
-      const { title, description = '', frequency } = req.body;
+      const { title, description = '', frequency, tags = [] } = req.body;
 
       if (!title || !frequency) {
          return res.status(400).json({
@@ -35,6 +59,7 @@ module.exports.createHabit = async (req, res) => {
          title: title.trim(),
          description,
          frequency,
+         tags: normalizeTags(Array.isArray(tags) ? tags : String(tags).split(',')),
       });
 
       return res.status(201).json({
@@ -52,11 +77,32 @@ module.exports.createHabit = async (req, res) => {
 // Get all habits for the logged-in user
 module.exports.getHabit = async (req, res) => {
    try {
-      const habits = await Habit.find({ user: req.user.userId }).sort({ createdAt: -1 });
+      const { page = 1, limit = 10, tag } = req.query;
+      const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+      const parsedLimit = Math.max(parseInt(limit, 10) || 10, 1);
+      const query = { user: req.user.userId };
+
+      if (tag) {
+         query.tags = { $in: [String(tag).trim().toLowerCase()] };
+      }
+
+      const [habits, totalItems] = await Promise.all([
+         Habit.find(query)
+            .sort({ createdAt: -1 })
+            .skip((parsedPage - 1) * parsedLimit)
+            .limit(parsedLimit),
+         Habit.countDocuments(query),
+      ]);
 
       return res.status(200).json({
          message: 'Habits fetched successfully',
-         habits,
+         habits: habits.map(applyStreakMeta),
+         pagination: {
+            page: parsedPage,
+            limit: parsedLimit,
+            totalItems,
+            totalPages: Math.max(Math.ceil(totalItems / parsedLimit), 1),
+         },
       });
    } catch (error) {
       return res.status(500).json({
@@ -83,7 +129,7 @@ module.exports.getHabitById = async (req, res) => {
 
       return res.status(200).json({
          message: 'Habit fetched successfully',
-         habit,
+         habit: applyStreakMeta(habit),
       });
    } catch (error) {
       return res.status(500).json({
