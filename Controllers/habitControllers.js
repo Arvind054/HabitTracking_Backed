@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Habit = require('../Models/habitSchema');
 
+const allowedFrequencies = new Set(['daily', 'weekly']);
+
 function normalizeTags(tags) {
    if (!Array.isArray(tags)) {
       return [];
@@ -31,6 +33,24 @@ function buildHabitPayload(body) {
    return payload;
 }
 
+function isValidString(value) {
+   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function parsePositiveInteger(value, fallback) {
+   if (value === undefined) {
+      return fallback;
+   }
+
+   const parsed = Number.parseInt(value, 10);
+
+   if (!Number.isFinite(parsed) || parsed < 1) {
+      return null;
+   }
+
+   return parsed;
+}
+
 function applyStreakMeta(habit) {
    if (!habit) {
       return habit;
@@ -48,9 +68,15 @@ module.exports.createHabit = async (req, res) => {
    try {
       const { title, description = '', frequency, tags = [] } = req.body;
 
-      if (!title || !frequency) {
+      if (!isValidString(title) || !isValidString(frequency)) {
          return res.status(400).json({
             message: 'title and frequency are required',
+         });
+      }
+
+      if (!allowedFrequencies.has(frequency.trim())) {
+         return res.status(400).json({
+            message: 'frequency must be either daily or weekly',
          });
       }
 
@@ -58,7 +84,7 @@ module.exports.createHabit = async (req, res) => {
          user: req.user.userId,
          title: title.trim(),
          description,
-         frequency,
+         frequency: frequency.trim(),
          tags: normalizeTags(Array.isArray(tags) ? tags : String(tags).split(',')),
       });
 
@@ -78,8 +104,15 @@ module.exports.createHabit = async (req, res) => {
 module.exports.getHabit = async (req, res) => {
    try {
       const { page = 1, limit = 10, tag } = req.query;
-      const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
-      const parsedLimit = Math.max(parseInt(limit, 10) || 10, 1);
+      const parsedPage = parsePositiveInteger(page, 1);
+      const parsedLimit = parsePositiveInteger(limit, 10);
+
+      if (parsedPage === null || parsedLimit === null) {
+         return res.status(400).json({
+            message: 'page and limit must be positive integers',
+         });
+      }
+
       const query = { user: req.user.userId };
 
       if (tag) {
@@ -152,6 +185,16 @@ module.exports.updateHabit = async (req, res) => {
 
       if (Object.keys(updates).length === 0) {
          return res.status(400).json({ message: 'At least one field is required to update' });
+      }
+
+      if (updates.frequency && !allowedFrequencies.has(updates.frequency.trim())) {
+         return res.status(400).json({
+            message: 'frequency must be either daily or weekly',
+         });
+      }
+
+      if (updates.frequency) {
+         updates.frequency = updates.frequency.trim();
       }
 
       const habit = await Habit.findOneAndUpdate(

@@ -6,6 +6,10 @@ function getDayKey(date) {
    return date.toISOString().slice(0, 10);
 }
 
+function isValidObjectId(value) {
+   return mongoose.Types.ObjectId.isValid(value);
+}
+
 function getLast7Days() {
    const days = [];
    const today = new Date();
@@ -76,7 +80,7 @@ module.exports.updateHabitStatus = async (req, res) => {
    try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
+      if (!isValidObjectId(id)) {
          return res.status(400).json({ message: 'Invalid habit id' });
       }
 
@@ -87,7 +91,7 @@ module.exports.updateHabitStatus = async (req, res) => {
       }
 
       const trackedDate = getDayKey(new Date());
-      const existingLog = await HabitLog.findOne({ habit: habit._id, date: trackedDate });
+      const existingLog = await HabitLog.findOne({ habit: habit._id, user: req.user.userId, date: trackedDate });
 
       if (existingLog) {
          return res.status(409).json({ message: 'Habit already marked completed for today' });
@@ -123,7 +127,7 @@ module.exports.getHabitHistory = async (req, res) => {
    try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
+      if (!isValidObjectId(id)) {
          return res.status(400).json({ message: 'Invalid habit id' });
       }
 

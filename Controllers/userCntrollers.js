@@ -3,6 +3,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../Models/userSchema');
 
+function isValidString(value) {
+   return typeof value === 'string' && value.trim().length > 0;
+}
+
 function createToken(user) {
    return jwt.sign(
       { userId: user._id.toString(), email: user.email },
@@ -15,7 +19,7 @@ module.exports.userRegister = async (req, res) => {
    try {
       const { name, email, password } = req.body;
 
-      if (!name || !email || !password) {
+      if (!isValidString(name) || !isValidString(email) || !isValidString(password)) {
          return res.status(400).json({
             message: 'name, email, and password are required',
          });
@@ -47,6 +51,10 @@ module.exports.userRegister = async (req, res) => {
          },
       });
    } catch (error) {
+      if (error.code === 11000) {
+         return res.status(409).json({ message: 'Email is already registered' });
+      }
+
       return res.status(500).json({
          message: 'Failed to register user',
          error: error.message,
@@ -58,7 +66,7 @@ module.exports.userLogin = async (req, res) => {
    try {
       const { email, password } = req.body;
 
-      if (!email || !password) {
+      if (!isValidString(email) || !isValidString(password)) {
          return res.status(400).json({
             message: 'email and password are required',
          });
