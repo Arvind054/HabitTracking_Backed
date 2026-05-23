@@ -1,18 +1,24 @@
 const express = require('express');
+const user = require('./Routes/user');
+const habits = require('./Routes/habits');
 require('dotenv').config();
-const { default: mongoose } = require('mongoose');
 
-const PORT = 3000;
+
+const dbConnection = require("./Config/db");
+
+const PORT =  process.env.PORT || 3000;
 const app = express();
 
-//Database Connection
-dbConnection()
-.then(console.log("db connected successfully"))
-.catch((e)=>{console.log("error connecting DB, ", e)});
-async function dbConnection(){
-    await mongoose.connect(process.env.MONGODB_URL);
-};
+// Conenct to DB
+dbConnection();
 
+// Routes the Request to the User Routes
+app.use("/user",user);
+
+// Routes the Request to the habits routes
+app.use("/habits",habits);
+
+// App initialisation
 app.listen(PORT, (req, res)=>{
     console.log("APP is Running on Port: ", PORT);
 })
