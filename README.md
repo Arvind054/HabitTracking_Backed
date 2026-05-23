@@ -19,6 +19,23 @@ REST API for personal habit tracking, authentication, habit management, and dail
 - View the last 7 days of tracking history
 - Habit tags, filtering, pagination, and streak calculation
 
+## Fork and Clone
+
+If you want to work on your own copy of the project:
+
+1. Fork this repository on GitHub.
+2. Clone your fork to your machine:
+
+```bash
+git clone https://github.com/Arvind054/HabitTracking_Backed
+```
+
+3. Move into the project folder:
+
+```bash
+cd HabitTracking_Backed
+```
+
 ## Setup
 
 ### 1. Install dependencies
